@@ -1,0 +1,54 @@
+
+services:
+  catalogue:
+    build: ./catalogue-service
+    container_name: catalogue
+    ports:
+      - "5001:5001"
+    environment:
+      DB_PATH: /data/catalogue.db
+    volumes:
+      - catalogue_data:/data
+    networks:
+      - boutique_net
+    restart: unless-stopped
+
+  notifications:
+    build: ./notifications-service
+    container_name: notifications
+    ports:
+      - "5003:5003"
+    environment:
+      DB_PATH: /data/notifications.db
+    volumes:
+      - notifications_data:/data
+    networks:
+      - boutique_net
+    restart: unless-stopped
+
+  commandes:
+    build: ./orders-service
+    container_name: commandes
+    ports:
+      - "5002:5002"
+    environment:
+      DB_PATH: /data/orders.db
+      CATALOGUE_URL: http://catalogue:5001
+      NOTIFICATIONS_URL: http://notifications:5003
+    volumes:
+      - commandes_data:/data
+    depends_on:
+      - catalogue
+      - notifications
+    networks:
+      - boutique_net
+    restart: unless-stopped
+
+networks:
+  boutique_net:
+    driver: bridge
+
+volumes:
+  catalogue_data:
+  notifications_data:
+  commandes_data:
