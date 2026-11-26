@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NatureShop</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="brand">NatureShop</div>
+    <nav class="nav-links">
+      <a href="#catalogue">Catalogue</a>
+      <a href="#order">Order</a>
+      <a href="#notifications">Notifications</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1>Natural Beauty</h1>
+      <p>Handcrafted cosmetics, essential oils, and daily care.</p>
+      <a class="ns-hero-cta" href="#catalogue">Catalogue</a>
+    </section>
+
+    <div class="ns-wrap">
+      <section id="catalogue">
+        <h2 class="ns-section-title">Catalogue</h2>
+        <div id="catalogue-list" class="ns-grid"></div>
+      </section>
+
+      <section id="order">
+        <h2 class="ns-section-title">Order</h2>
+        <div class="ns-order-box">
+          <form id="order-form">
+            <div class="ns-form-row">
+              <div class="ns-field">
+                <label for="product-select">Product</label>
+                <select id="product-select" name="product_id" required></select>
+              </div>
+
+              <div class="ns-field">
+                <label for="quantity-input">Quantity</label>
+                <input id="quantity-input" name="quantity" type="number" min="1" value="1" required />
+              </div>
+
+              <div class="ns-field">
+                <label for="email-input">Email</label>
+                <input id="email-input" name="customer_email" type="email" required />
+              </div>
+
+              <button type="submit" class="ns-btn">Order</button>
+            </div>
+          </form>
+          <p id="order-status" class="ns-status"></p>
+        </div>
+
+        <h3 class="ns-section-title">Orders</h3>
+        <div id="orders-list" class="ns-list"></div>
+      </section>
+
+      <section id="notifications">
+        <h2 class="ns-section-title">Notifications</h2>
+        <div id="notifications-list" class="ns-list"></div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const CATALOGUE_URL = "http://localhost:5001";
+    const ORDER_URL = "http://localhost:5002";
+    const NOTIFICATIONS_URL = "http://localhost:5003";
+
+    function startOrder(productId) {
+      const select = document.getElementById("product-select");
+      if (select) {
+        select.value = String(productId);
+        select.dispatchEvent(new Event("change"));
+      }
+      document.getElementById("order")?.scrollIntoView({ behavior: "smooth" });
+    }
+
+    async function loadCatalogue() {
+      const listEl = document.getElementById("catalogue-list");
+      const selectEl = document.getElementById("product-select");
+      try {
+        const res = await fetch(`${CATALOGUE_URL}/products`);
+        const data = await res.json();
+        const products = Array.isArray(data) ? data : (data.products || []);
+
+        listEl.innerHTML = products.map((p) => {
+          const id = p.id ?? p.product_id;
+          const name = p.name ?? p.nom ?? `Product #${id}`;
+          const price = p.price ?? p.prix ?? "";
+          const stock = p.stock ?? p.quantite ?? "";
+          return `
+            <article class="ns-card">
+              <div>
+                <h3>${name}</h3>
+                <p class="ns-meta">${price !== "" ? `${price} TND` : ""}</p>
+                <p class="ns-meta">${stock !== "" ? `Stock: ${stock}` : ""}</p>
+              </div>
+              <button type="button" class="ns-btn" onclick="startOrder('${id}')">Order</button>
+            </article>
+          `;
+        }).join("");
+
+        selectEl.innerHTML = products.map((p) => {
+          const id = p.id ?? p.product_id;
+          const name = p.name ?? p.nom ?? `Product #${id}`;
+          return `<option value="${id}">${name}</option>`;
+        }).join("");
+      } catch (err) {
+        listEl.innerHTML = `<p class="ns-empty">${err.message}</p>`;
+      }
+    }
+
+    async function loadOrders() {
+      const listEl = document.getElementById("orders-list");
+      try {
+        const res = await fetch(`${ORDER_URL}/orders`);
+        const data = await res.json();
+        const orders = Array.isArray(data) ? data : (data.orders || []);
+        if (!orders.length) {
+          listEl.innerHTML = `<p class="ns-empty">No orders yet.</p>`;
+          return;
+        }
+        listEl.innerHTML = orders.map((o) => {
+          const product = o.nom_produit ?? o.produit ?? `Product #${o.produit_id ?? ""}`;
+          const qty = o.quantite ?? o.quantity ?? 1;
+          const total = o.total !== undefined ? `${o.total} TND` : "";
+          const email = o.email_client ?? o.email ?? "";
+          const status = o.statut ?? "";
+          return `
+            <div class="ns-item">
+              <strong>Order #${o.id}</strong> — ${qty} × ${product}
+              ${total ? `(${total})` : ""}
+              ${email ? `• ${email}` : ""}
+              ${status ? `• <em>${status}</em>` : ""}
+            </div>
+          `;
+        }).join("");
+      } catch (err) {
+        listEl.innerHTML = `<p class="ns-empty">${err.message}</p>`;
+      }
+    }
+
+    async function loadNotifications() {
+      const listEl = document.getElementById("notifications-list");
+      try {
+        const res = await fetch(`${NOTIFICATIONS_URL}/notifications`);
+        const data = await res.json();
+        const items = Array.isArray(data) ? data : (data.notifications || []);
+        if (!items.length) {
+          listEl.innerHTML = `<p class="ns-empty">No notifications yet.</p>`;
+          return;
+        }
+        listEl.innerHTML = items.map((n) => `<div class="ns-item">${typeof n === "string" ? n : (n.message || JSON.stringify(n))}</div>`).join("");
+      } catch (err) {
+        listEl.innerHTML = `<p class="ns-empty">${err.message}</p>`;
+      }
+    }
+
+    document.getElementById("order-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const statusEl = document.getElementById("order-status");
+      const rawId = document.getElementById("product-select").value;
+      const payload = {
+        product_id: Number.isNaN(Number(rawId)) ? rawId : Number(rawId),
+        quantity: Number(document.getElementById("quantity-input").value),
+        customer_email: document.getElementById("email-input").value
+      };
+
+      try {
+        const res = await fetch(`${ORDER_URL}/orders`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.erreur || `HTTP ${res.status}`);
+        statusEl.textContent = `Order #${body.id ?? ""} created`;
+        await Promise.all([loadCatalogue(), loadOrders(), loadNotifications()]);
+      } catch (err) {
+        statusEl.textContent = err.message;
+      }
+    });
+
+    loadCatalogue();
+    loadOrders();
+    loadNotifications();
+  </script>
+</body>
+</html>

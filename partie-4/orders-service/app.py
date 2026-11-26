@@ -9,6 +9,20 @@ URL_CATALOGUE = os.getenv("CATALOGUE_URL", "http://catalogue:5001")
 URL_NOTIFICATIONS = os.getenv("NOTIFICATIONS_URL", "http://notifications:5003")
 
 
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    return response
+
+
+@app.before_request
+def handle_preflight():
+    if request.method == "OPTIONS":
+        return "", 204
+
+
 def obtenir_bd():
     connexion = sqlite3.connect(CHEMIN_BD)
     connexion.row_factory = sqlite3.Row

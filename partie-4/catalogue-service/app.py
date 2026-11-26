@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from flask import Flask, jsonify
+from flask import Flask, jsonify, render_template
 
 app = Flask(__name__)
 CHEMIN_BD = os.getenv("DB_PATH", "/data/catalogue.db")
@@ -36,6 +36,19 @@ def initialiser_bd():
             )
 
 
+@app.after_request
+def ajouter_cors(reponse):
+    reponse.headers["Access-Control-Allow-Origin"] = "*"
+    reponse.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    reponse.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    return reponse
+
+
+@app.get("/")
+def accueil():
+    return render_template("index.html")
+
+
 @app.get("/products")
 def lister_produits():
     with obtenir_bd() as bd:
@@ -56,3 +69,4 @@ initialiser_bd()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001)
+
